@@ -1,53 +1,48 @@
-from datetime import date, datetime
-import math
-from wechatpy import WeChatClient
-from wechatpy.client.api import WeChatMessage, WeChatTemplate
+from threading import Timer
 import requests
-import os
-import random
-
-today = datetime.now()
-start_date = os.environ['START_DATE']
-city = os.environ['CITY']
-birthday = os.environ['BIRTHDAY']
-
-app_id = os.environ["APP_ID"]
-app_secret = os.environ["APP_SECRET"]
-
-user_id = os.environ["USER_ID"]
-template_id = os.environ["TEMPLATE_ID"]
+import re
+import itchat
 
 
-def get_weather():
-  url = "http://autodev.openspeech.cn/csp/api/v2.1/weather?openId=aiuicus&clientType=android&sign=android&city=" + city
-  res = requests.get(url).json()
-  weather = res['data']['list'][0]
-  return weather['weather'], math.floor(weather['temp'])
+def get(url):
+    ua={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.108 Safari/537.36'
+    }
+    response = requests.get(url,headers = ua)
+    if response.status_code == 200:
+        response.encoding ='utf-8'
+        return response.text
+    return None
+def parse(html):
+    pattern = re.compile('<div class="wea_weather clearfix">[\s\S]*?<em>([\s\S]*?)</em>[\s\S]*?<b>([\s\S]*?)</b>')
+    item = re.findall(pattern,html)
+    return item[0]
+def parse2(html):
+    pattern = re.compile('<div class="wea_about clearfix">[\s\S]*?<span>([\s\S]*?)</span>[\s\S]*?<em>([\s\S]*?)</em>')
+    item = re.findall(pattern,html)
+    return item[0]
+def parse3(html):
+    pattern = re.compile('<div class="wea_tips clearfix">[\s\S]*?<span>([\s\S]*?)</span>[\s\S]*?<em>([\s\S]*?)</em>')
+    item = re.findall(pattern,html)
+    return item[0]
 
-def get_count():
-  delta = today - datetime.strptime(start_date, "%Y-%m-%d")
-  return delta.days
-
-def get_birthday():
-  next = datetime.strptime(str(date.today().year) + "-" + birthday, "%Y-%m-%d")
-  if next < datetime.now():
-    next = next.replace(year=next.year + 1)
-  return (next - today).days
-
-def get_words():
-  words = requests.get("https://api.shadiao.pro/chp")
-  if words.status_code != 200:
-    return get_words()
-  return words.json()['data']['text']
-
-def get_random_color():
-  return "#%06x" % random.randint(0, 0xFFFFFF)
-
-
-client = WeChatClient(app_id, app_secret)
-
-wm = WeChatMessage(client)
-wea, temperature = get_weather()
-data = {"weather":{"value":wea},"temperature":{"value":temperature},"love_days":{"value":get_count()},"birthday_left":{"value":get_birthday()},"words":{"value":get_words(), "color":get_random_color()}}
-res = wm.send_template(user_id, template_id, data)
-print(res,today)
+def send(data):
+    itchat.auto_login()
+    name = itchat.search_friends(remarkName='pink')[0]['UserName']
+    message = data[1]+'，气温'+data[0]+'度,'+dats[0]+','+dats[1]+','+datd[0]+':'+datd[1]
+    itchat.send_msg(msg='新郑市今天天气: '+message,toUserName=name)
+    
+    
+    
+if __name__=='__main__':
+    url = 'https://tianqi.moji.com/weather/china/henan/xinzheng'
+    html = get(url)
+    data = parse(html)
+    dats = parse2(html)
+    datd = parse3(html)
+    print(data)
+    print(dats)
+    print(datd)
+    send(data)
+    
+    
+   
